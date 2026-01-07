@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Konu Atlası | Akademik Takip Sistemi</title>
+    <meta name="description" content="TYT ve AYT hazırlık sürecinde konuları takip edebileceğiniz profesyonel çizelge oluşturucu.">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+        
+        body { font-family: 'Inter', sans-serif; background-color: #F1F5F9; }
+
+        #pdf-content {
+            width: 210mm;
+            min-height: 297mm;
+            height: auto;
+            padding: 20mm;
+            margin: auto;
+            background: white;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        tr { page-break-inside: avoid; }
+        .page-break { page-break-before: always; }
+        
+        .no-print-ui { transition: all 0.3s ease; }
+        select, input, textarea { outline: none !important; border: 1px solid #E2E8F0; }
+        select:focus, input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+        .tab-active { background-color: #1E293B; color: white; }
+        
+        .footer-space { flex-grow: 1; }
+    </style>
+</head>
+<body class="py-10 px-4">
+
+    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <div class="lg:col-span-4 space-y-5 no-print-ui">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h2 class="text-xl font-bold text-slate-800 mb-4">👤 Öğrenci Bilgisi</h2>
+                <div class="space-y-3">
+                    <input type="text" id="inStudent" oninput="updatePreview()" placeholder="Öğrenci Adı Soyadı" class="w-full rounded-xl p-3 bg-slate-50">
+                    <input type="text" id="inInst" oninput="updatePreview()" placeholder="Kurum / Okul Adı" class="w-full rounded-xl p-3 bg-slate-50">
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <div class="flex gap-2 mb-6 p-1 bg-slate-100 rounded-xl">
+                    <button onclick="setExamType('TYT')" id="btnTYT" class="flex-1 py-2 rounded-lg font-bold text-sm tab-active transition-all">TYT</button>
+                    <button onclick="setExamType('AYT')" id="btnAYT" class="flex-1 py-2 rounded-lg font-bold text-sm text-slate-500 transition-all">AYT</button>
+                </div>
+
+                <div class="space-y-4">
+                    <select id="inDers" onchange="updateKonuOptions()" class="w-full rounded-xl p-3 bg-slate-50 cursor-pointer"></select>
+                    <select id="inKonu" class="w-full rounded-xl p-3 bg-slate-50 cursor-pointer"></select>
+                    <input type="text" id="inKaynak" placeholder="Kaynak / Ödev Notu" class="w-full rounded-xl p-3 bg-slate-50">
+                    <button onclick="addRow()" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 shadow-lg">Listeye Ekle</button>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <textarea id="inNote" oninput="updatePreview()" rows="3" class="w-full border rounded-xl p-3 bg-slate-50 mb-4" placeholder="Rehber Notu..."></textarea>
+                <button onclick="downloadPDF()" class="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-black flex items-center justify-center gap-3">
+                    <span>📥</span> PDF OLARAK KAYDET
+                </button>
+            </div>
+        </div>
+
+        <div class="lg:col-span-8 overflow-x-auto pb-10">
+            <div id="pdf-content">
+                <div class="flex justify-between items-start border-b-4 border-slate-900 pb-6 mb-8">
+                    <div>
+                        <h1 class="text-4xl font-black text-slate-900 tracking-tighter">KONU ATLASI</h1>
+                        <p class="text-slate-500 font-medium uppercase tracking-widest text-[10px] mt-1">Akademik Takip Çizelgesi</p>
+                    </div>
+                    <div class="text-right space-y-1">
+                        <p class="font-black text-xl text-slate-800" id="outStudent">________ ________</p>
+                        <p class="text-sm font-semibold text-slate-500" id="outInst">________</p>
+                        <p class="text-[10px] text-slate-400" id="outDate"></p>
+                    </div>
+                </div>
+
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr class="bg-slate-900 text-white">
+                            <th class="p-3 text-left text-[9px] font-bold uppercase w-12 text-slate-400">Sınav</th>
+                            <th class="p-3 text-left text-[9px] font-bold uppercase w-28">Ders</th>
+                            <th class="p-3 text-left text-[9px] font-bold uppercase">Konu</th>
+                            <th class="p-3 text-left text-[9px] font-bold uppercase">Kaynak / Durum</th>
+                            <th class="p-3 text-center text-[9px] font-bold uppercase w-8 no-print-item"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="outTable"></tbody>
+                </table>
+
+                <div class="mt-10">
+                    <h3 class="text-slate-900 font-black text-[11px] uppercase tracking-widest border-l-4 border-blue-600 pl-2 mb-3">Rehberlik Notu</h3>
+                    <div id="outNote" class="text-slate-700 text-sm leading-relaxed p-5 bg-slate-50 rounded-xl min-h-[100px] border border-slate-100 italic">
+                        Henüz bir not eklenmedi.
+                    </div>
+                </div>
+
+                <div class="footer-space"></div>
+                
+                <div class="mt-12 flex justify-between items-end border-t border-slate-200 pt-8">
+                    <div class="text-[9px] text-slate-400 max-w-[280px]">
+                        Hazırlayan: <strong>Uzm. Psk. Dan. Ali Avşaroğlu</strong>
+                    </div>
+                    <div class="text-center">
+                        <div class="font-bold text-slate-900 text-sm">Uzm. Psk. Dan. Ali Avşaroğlu</div>
+                        <div class="text-[10px] text-slate-500">Rehberlik Servisi</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ALL_DATA = {
+            "TYT": {
+                "Türkçe": ["Sözcükte Anlam", "Söz Yorumu", "Deyim ve Atasözü", "Cümlede Anlam", "Paragraf", "Paragrafta Anlatım Teknikleri", "Paragrafta Düşünceyi Geliştirme Yolları", "Paragrafta Yapı", "Paragrafta Konu-Ana Düşünce", "Paragrafta Yardımcı Düşünce", "Ses Bilgisi", "Yazım Kuralları", "Noktalama İşaretleri", "Sözcükte Yapı/Ekler", "Sözcük Türleri", "İsimler", "Zamirler", "Sıfatlar", "Zarflar", "Edat – Bağlaç – Ünlem", "Fiiller", "Fiilde Anlam", "Ek Fiil", "Fiilimsi", "Fiilde Çatı", "Sözcük Grupları", "Cümlenin Ögeleri", "Cümle Türleri", "Anlatım Bozukluğu"],
+                "Matematik": ["Temel Kavramlar", "Sayı Basamakları", "Bölme ve Bölünebilme", "EBOB – EKOK", "Rasyonel Sayılar", "Basit Eşitsizlikler", "Mutlak Değer", "Üslü Sayılar", "Köklü Sayılar", "Çarpanlara Ayırma", "Oran Orantı", "Denklem Çözme", "Problemler", "Kümeler", "Mantık", "Fonksiyonlar", "Polinomlar", "2.Dereceden Denklemler", "Permütasyon ve Kombinasyon", "Olasılık", "Veri – İstatistik"],
+                "Geometri": ["Temel Kavramlar", "Doğruda Açılar", "Üçgende Açılar", "Özel Üçgenler", "Açıortay", "Kenarortay", "Benzerlik", "Üçgende Alan", "Çokgenler", "Dörtgenler", "Çember ve Daire", "Analitik Geometri", "Katı Cisimler"],
+                "Fizik": ["Fizik Bilimine Giriş", "Madde ve Özellikleri", "Basınç ve Kaldırma Kuvveti", "Isı ve Sıcaklık", "Hareket ve Kuvvet", "Enerji", "Elektrik", "Manyetizma", "Dalgalar", "Optik"],
+                "Kimya": ["Kimya Bilimi", "Atom ve Periyodik Sistem", "Türler Arası Etkileşimler", "Maddenin Halleri", "Karışımlar", "Asit, Baz ve Tuz", "Kimya Her Yerde"],
+                "Biyoloji": ["Canlıların Ortak Özellikleri", "Temel Bileşenler", "Hücre", "Sınıflandırma", "Bölünme ve Üreme", "Kalıtım", "Ekosistem"],
+                "Tarih": ["Tarih ve Zaman", "İlk Çağlar", "Türk Dünyası", "İslam Tarihi", "Selçuklu", "Osmanlı Tarihi", "Kurtuluş Savaşı", "İnkılap Tarihi"],
+                "Coğrafya": ["Doğa ve İnsan", "Dünya'nın Şekli", "Harita Bilgisi", "İklim", "Yer Şekilleri", "Nüfus", "Bölgeler", "Afetler"]
+            },
+            "AYT": {
+                "Matematik": ["Fonksiyonlar", "Polinomlar", "2.Dereceden Denklemler", "Permütasyon-Kombinasyon", "Binom ve Olasılık", "Karmaşık Sayılar", "Eşitsizlikler", "Parabol", "Trigonometri", "Logaritma", "Diziler", "Limit", "Türev", "İntegral"],
+                "Fizik": ["Vektörler", "Tork ve Denge", "Basit Makineler", "Newton Yasaları", "Atışlar", "İtme ve Momentum", "Elektrik ve Manyetizma", "Çembersel Hareket", "Harmonik Hareket", "Dalga Mekaniği", "Modern Fizik"],
+                "Kimya": ["Modern Atom Teorisi", "Gazlar", "Çözeltiler", "Enerji, Hız, Denge", "Asit-Baz Dengesi", "Elektrokimya", "Organik Kimya"],
+                "Biyoloji": ["Sistemler", "Genden Proteine", "Enerji Dönüşümleri", "Bitki Biyolojisi", "Canlılar ve Çevre"],
+                "Edebiyat": ["Şiir Bilgisi", "Edebi Sanatlar", "Dönemler (Halk, Divan, Tanzimat vb.)", "Cumhuriyet Edebiyatı", "Akımlar"],
+                "Tarih": ["Selçuklu", "Osmanlı Siyaseti", "Denge Stratejisi", "Milli Mücede", "Dünya Savaşı", "Çağdaş Türk Tarihi"],
+                "Coğrafya": ["Ekosistem", "Nüfus Politikaları", "Türkiye Ekonomisi", "Küresel Ticaret", "Çevre ve Toplum"]
+            }
+        };
+
+        let currentExam = "TYT";
+        let rows = [];
+
+        function setExamType(type) {
+            currentExam = type;
+            document.getElementById('btnTYT').className = type === 'TYT' ? 'flex-1 py-2 rounded-lg font-bold text-sm tab-active' : 'flex-1 py-2 rounded-lg font-bold text-sm text-slate-500';
+            document.getElementById('btnAYT').className = type === 'AYT' ? 'flex-1 py-2 rounded-lg font-bold text-sm tab-active' : 'flex-1 py-2 rounded-lg font-bold text-sm text-slate-500';
+            updateDersOptions();
+        }
+
+        function updateDersOptions() {
+            const dersSelect = document.getElementById('inDers');
+            dersSelect.innerHTML = "";
+            Object.keys(ALL_DATA[currentExam]).forEach(ders => {
+                const opt = document.createElement('option');
+                opt.value = ders; opt.innerText = ders;
+                dersSelect.appendChild(opt);
+            });
+            updateKonuOptions();
+        }
+
+        function updateKonuOptions() {
+            const ders = document.getElementById('inDers').value;
+            const konuSelect = document.getElementById('inKonu');
+            konuSelect.innerHTML = "";
+            ALL_DATA[currentExam][ders].forEach(konu => {
+                const opt = document.createElement('option');
+                opt.value = konu; opt.innerText = konu;
+                konuSelect.appendChild(opt);
+            });
+        }
+
+        function addRow() {
+            rows.push({
+                id: Date.now(),
+                exam: currentExam,
+                ders: document.getElementById('inDers').value,
+                konu: document.getElementById('inKonu').value,
+                kaynak: document.getElementById('inKaynak').value || "-"
+            });
+            document.getElementById('inKaynak').value = "";
+            updatePreview();
+        }
+
+        function deleteRow(id) {
+            rows = rows.filter(r => r.id !== id);
+            updatePreview();
+        }
+
+        function updatePreview() {
+            document.getElementById('outStudent').innerText = document.getElementById('inStudent').value || "________ ________";
+            document.getElementById('outInst').innerText = document.getElementById('inInst').value || "________";
+            document.getElementById('outNote').innerText = document.getElementById('inNote').value || "Henüz bir not eklenmedi.";
+            document.getElementById('outDate').innerText = "Oluşturma: " + new Date().toLocaleDateString('tr-TR');
+
+            const table = document.getElementById('outTable');
+            table.innerHTML = "";
+            rows.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="p-3 text-[10px] font-black ${r.exam === 'TYT' ? 'text-blue-500' : 'text-purple-500'} uppercase">${r.exam}</td>
+                    <td class="p-3 text-xs font-bold text-slate-800">${r.ders}</td>
+                    <td class="p-3 text-xs text-slate-600">${r.konu}</td>
+                    <td class="p-3 text-xs text-slate-400 italic">${r.kaynak}</td>
+                    <td class="p-3 text-center no-print-item">
+                        <button onclick="deleteRow(${r.id})" class="text-slate-300 hover:text-red-500">×</button>
+                    </td>
+                `;
+                table.appendChild(tr);
+            });
+        }
+
+        function downloadPDF() {
+            const student = document.getElementById('inStudent').value || "Ogrenci";
+            const element = document.getElementById('pdf-content');
+            const itemsToHide = document.querySelectorAll('.no-print-item');
+            itemsToHide.forEach(el => el.style.opacity = '0');
+
+            const opt = {
+                margin: 0,
+                filename: `Konu_Atlasi_${student}.pdf`,
+                image: { type: 'jpeg', quality: 1 },
+                html2canvas: { scale: 2, useCORS: true, letterRendering: true, scrollY: 0 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak: { mode: ['css', 'legacy'] } 
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                itemsToHide.forEach(el => el.style.opacity = '1');
+            });
+        }
+
+        window.onload = () => { setExamType('TYT'); };
+    </script>
+</body>
+</html>
